@@ -1,15 +1,10 @@
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
-import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDDocumentInformation;
-import org.apache.poi.hslf.usermodel.HSLFSlideShow;
-import org.apache.poi.xslf.usermodel.XSLFSlideShow;
 
 // ==========================================
 // 1. DATA MODEL (In-Memory Database)
@@ -34,11 +29,11 @@ class Document {
 // ==========================================
 // 2. MAIN APPLICATION (GUI)
 // ==========================================
-public class docu extends JFrame {
+public class SimpleDVS extends JFrame {
 
     private static Map<String, Document> db = new HashMap<>();
 
-    public docu() {
+    public SimpleDVS() {
         // Window Setup
         setTitle("Simple DVS (Strict Fraud Detection)");
         setSize(700, 650); // Increased height for extra field
@@ -154,7 +149,7 @@ public class docu extends JFrame {
         JTextField tfPin = new JTextField();
         tfPin.setBounds(180, 100, 200, 25);
         panel.add(tfPin);
-
+        
         // NEW: Check Owner Name
         JLabel l3 = new JLabel("Verify Owner:");
         l3.setBounds(50, 140, 120, 25);
@@ -173,7 +168,7 @@ public class docu extends JFrame {
         tfVerifyFile.setBounds(180, 180, 200, 25);
         tfVerifyFile.setEditable(false);
         panel.add(tfVerifyFile);
-
+        
         JButton btnBrowse = new JButton("Browse...");
         btnBrowse.setBounds(390, 180, 100, 25);
         panel.add(btnBrowse);
@@ -187,17 +182,14 @@ public class docu extends JFrame {
         statusLabel.setBounds(50, 270, 600, 25);
         statusLabel.setFont(new Font("Arial", Font.BOLD, 14));
         panel.add(statusLabel);
-
-        // Store selected file path
-        final File[] selectedFile = {null};
-
+        
         // Action: Browse
         btnBrowse.addActionListener(e -> {
             JFileChooser fileChooser = new JFileChooser();
             int option = fileChooser.showOpenDialog(this);
             if (option == JFileChooser.APPROVE_OPTION) {
-                selectedFile[0] = fileChooser.getSelectedFile();
-                tfVerifyFile.setText(selectedFile[0].getName());
+                File selectedFile = fileChooser.getSelectedFile();
+                tfVerifyFile.setText(selectedFile.getName());
             }
         });
 
@@ -213,8 +205,8 @@ public class docu extends JFrame {
                 statusLabel.setForeground(Color.RED);
                 return;
             }
-
-            if (selectedFile[0] == null) {
+            
+            if (verifyFileName.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Please select the file you want to verify!");
                 return;
             }
@@ -227,20 +219,18 @@ public class docu extends JFrame {
                 statusLabel.setForeground(Color.RED);
                 return;
             }
-
-            // CHECK 2: OWNER IDENTITY (Case Sensitive, Word-by-Word Check)
-            String[] regOwnerWords = doc.ownerName.trim().split("\\s+");
-            String[] inputOwnerWords = verifyOwner.trim().split("\\s+");
-            if (!java.util.Arrays.equals(regOwnerWords, inputOwnerWords)) {
-                statusLabel.setText("Result: ⚠️ IDENTITY FRAUD! Owner name does not match record (checked word-by-word, case-sensitive).");
+            
+            // CHECK 2: OWNER IDENTITY (Case Insensitive)
+            if (!doc.ownerName.equalsIgnoreCase(verifyOwner)) {
+                statusLabel.setText("Result: ⚠️ IDENTITY FRAUD! Owner name does not match record.");
                 statusLabel.setForeground(Color.RED);
                 doc.status = "Rejected (Identity Mismatch)";
                 return;
             }
-
-            // CHECK 3: FILE NAME (Case Insensitive)
-            if (!doc.filename.equalsIgnoreCase(verifyFileName)) {
-                 statusLabel.setText("Result: ⚠️ DOCUMENT FRAUD! File name mismatch (case-insensitive check).");
+            
+            // CHECK 3: FILE NAME
+            if (!doc.filename.equals(verifyFileName)) {
+                 statusLabel.setText("Result: ⚠️ DOCUMENT FRAUD! File name mismatch.");
                  statusLabel.setForeground(Color.RED);
                  doc.status = "Rejected (File Tampering Detected)";
                  return;
@@ -295,41 +285,6 @@ public class docu extends JFrame {
         return panel;
     }
 
-    // Method to extract owner from file metadata (PDF or PPT)
-    private static String extractOwnerFromFile(File file) {
-        String filename = file.getName().toLowerCase();
-        try {
-            if (filename.endsWith(".pdf")) {
-                // Extract author from PDF
-                PDDocument document = PDDocument.load(file);
-                PDDocumentInformation info = document.getDocumentInformation();
-                String author = info.getAuthor();
-                document.close();
-                return author;
-            } else if (filename.endsWith(".ppt")) {
-                // Extract author from PPT
-                FileInputStream fis = new FileInputStream(file);
-                HSLFSlideShow slideshow = new HSLFSlideShow(fis);
-                String author = slideshow.getSummaryInformation().getAuthor();
-                fis.close();
-                return author;
-            } else if (filename.endsWith(".pptx")) {
-                // Extract author from PPTX
-                FileInputStream fis = new FileInputStream(file);
-                XSLFSlideShow slideshow = new XSLFSlideShow(fis);
-                String author = slideshow.getProperties().getCoreProperties().getCreator();
-                fis.close();
-                return author;
-            }
-        } catch (Exception e) {
-            // If extraction fails, return null
-            return null;
-        }
-        return null;
-    }
-
     public static void main(String[] args) {
-
-        SwingUtilities.invokeLater(() -> new docu().setVisible(true));
+        SwingUtilities.invokeLater(() -> new SimpleDVS().setVisible(true));
     }
-}
